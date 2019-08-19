@@ -17,7 +17,7 @@ Links
 
 A lot was taken from public kernels:
 
-    * `molecular-properties-eda-and-models <https://www.kaggle.com/artgor/molecular-properties-eda-and-models`_.
+    * `molecular-properties-eda-and-models <https://www.kaggle.com/artgor/molecular-properties-eda-and-models>`_.
 
 Releases
 ========
