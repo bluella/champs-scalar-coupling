@@ -1,0 +1,12 @@
+{
+    "python.pythonPath": "ds_env/bin/python",
+    "python.globalModuleInstallation": true,
+    "python.linting.enabled": true,
+    "files.exclude": {
+        "**/.git": true,         // this is a default value
+        "**/.DS_Store": true,    // this is a default value
+
+        "**/*_env": true,
+        "**/__pycache__": true
+                            }
+}
