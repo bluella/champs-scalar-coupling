@@ -3,6 +3,7 @@
     "python.globalModuleInstallation": true,
     "python.terminal.activateEnvironment": true,
     "python.linting.enabled": true,
+    "python.envFile": "/etc/environment",
     "files.exclude": {
         "**/.DS_Store": true,    // this is a default value
         "**/__pycache__": true
