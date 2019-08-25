@@ -1,9 +1,20 @@
-====================
-kaggle-template
-====================
+======================
+champs-scalar-coupling
+======================
 
 
 Kaggle competition https://www.kaggle.com/c/champs-scalar-coupling/overview
+
+Installation
+============
+
+Make sure virtualenv, python3.7+ are installed.
+
+.. code-block:: bash
+
+    git clone git@github.com:bluella/champs-scalar-coupling.git;
+    cd champs-scalar-coupling;
+    bash setup.sh;
 
 
 Description
