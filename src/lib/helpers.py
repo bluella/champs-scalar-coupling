@@ -4,6 +4,7 @@ import re
 import os
 import time
 import datetime as dt
+import multiprocessing
 import numpy as np
 import scipy as ss
 import pandas as pd
@@ -30,6 +31,9 @@ DATASETS_PATH = PROJECT_DIR + '/datasets/'
 DATASETS_ORIGINAL_PATH = DATASETS_PATH + 'original/'
 DATASETS_DEV_PATH = DATASETS_PATH + 'dev/'
 DATASETS_PRED_PATH = DATASETS_PATH + 'predictions/'
+
+
+CPU_COUNT = multiprocessing.cpu_count()
 
 ###################################################################################################
 # resources optimization
@@ -280,7 +284,7 @@ def train_model_regression(X, X_test, y, params, folds=None, model_type='lgb',
                            eval_metric='mae', columns=None,
                            plot_feature_importance=False, model=None,
                            verbose=10000, early_stopping_rounds=200,
-                           n_estimators=50000, splits=None, n_folds=3):
+                           n_estimators=50000, splits=None, n_folds=3, n_jobs=CPU_COUNT-1):
     """
     A function to train a variety of regression models.
     Returns dictionary with oof predictions, test predictions,
@@ -346,7 +350,7 @@ def train_model_regression(X, X_test, y, params, folds=None, model_type='lgb',
 
         if model_type == 'lgb':
             model = lgb.LGBMRegressor(
-                **params, n_estimators=n_estimators, n_jobs=-1)
+                **params, n_estimators=n_estimators, n_jobs=n_jobs)
             model.fit(X_train, y_train,
                       eval_set=[(X_train, y_train), (X_valid, y_valid)
                                 ], eval_metric=metrics_dict[eval_metric]['lgb_metric_name'],
@@ -446,7 +450,7 @@ def train_model_classification(X, X_test, y, params, folds, model_type='lgb',
                                plot_feature_importance=False, model=None,
                                verbose=10000, early_stopping_rounds=200,
                                n_estimators=50000, splits=None,
-                               n_folds=3, averaging='usual', n_jobs=-1):
+                               n_folds=3, averaging='usual', n_jobs=CPU_COUNT-1):
     """
     A function to train a variety of classification models.
     Returns dictionary with oof predictions, test predictions,
