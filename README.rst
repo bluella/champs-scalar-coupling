@@ -20,8 +20,8 @@ Make sure virtualenv, python3.7+ are installed.
 Description
 ===========
 
-Created kernel for some results. LB ...
-`main.py <https://github.com/bluella/champs-scalar-coupling/blob/master/src/main.py>`_. can be easily converted to Jupyter Notebook.
+* Created kernel for some results. LB ...
+* `main.py <https://github.com/bluella/champs-scalar-coupling/blob/master/src/main.py>`_. can be easily converted to Jupyter Notebook.
 
 Links
 =====
