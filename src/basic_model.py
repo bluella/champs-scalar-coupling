@@ -105,7 +105,7 @@ train, test = df[df[target] != 'test'], df[df[target]
                                            == 'test'].drop(target, axis=1)
 
 X = train.drop(['id', 'molecule_name', 'scalar_coupling_constant'], axis=1)
-Y = train['scalar_coupling_constant']
+Y = train['scalar_coupling_constant'].astype(float)
 X_test = test.drop(['id', 'molecule_name'], axis=1)
 
 del df
@@ -118,9 +118,6 @@ del df
 # print(X.shape, Y.shape, X_test.shape)
 # print(X.head(5))
 # print(Y.head(5))
-
-
-
 
 
 # %%
@@ -153,15 +150,21 @@ result_dict_lgb = hlp.train_model_regression(X=X, X_test=X_test, y=Y,
                                              model_type='lgb',
                                              eval_metric='group_mae',
                                              plot_feature_importance=True,
-                                             verbose=1000,
+                                             verbose=500,
                                              early_stopping_rounds=200,
                                              n_jobs=6,
-                                             n_estimators=10000)
+                                             n_estimators=1000)
 
 # %%
 # save results
 sub['scalar_coupling_constant'] = result_dict_lgb['prediction']
 sub.to_csv(f'{hlp.DATASETS_PRED_PATH}submission.csv', index=False)
 print(sub.head())
-hlp.send_message_to_telegram(str(result_dict_lgb))
+hlp.send_message_to_telegram(str(result_dict_lgb['scores']))
 
+
+
+
+
+
+#%%
