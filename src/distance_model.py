@@ -74,6 +74,19 @@ structures_csv['atom'] = structures_csv['atom'].replace(
 submission_csv = pd.read_csv(
     f'{hlp.DATASETS_PRED_PATH}/sample_submission.csv', index_col='id')
 
+# %%
+# Add number of atoms
+
+n_atoms_tr = pd.DataFrame(train_csv['molecule_index'].value_counts().sort_values())
+n_atoms_tst = pd.DataFrame(test_csv['molecule_index'].value_counts().sort_values())
+
+n_atoms_tr.columns = ['n_atoms']
+n_atoms_tr.index.names = ['molecule_index']
+n_atoms_tst.columns = ['n_atoms']
+n_atoms_tst.index.names = ['molecule_index']
+
+train_csv = train_csv.join(n_atoms_tr, on='molecule_index')
+test_csv = test_csv.join(n_atoms_tst, on='molecule_index')
 
 # %%
 # a lot of foreign functions
@@ -215,93 +228,71 @@ def take_n_atoms(df, n_atoms, four_start=4):
 
 
 # %%
-# full_df = build_couple_dataframe(train_csv, structures_csv, '1JHN', n_atoms=10)
+# sandbox part
 
+# create dataset for one type
+full_df = build_couple_dataframe(train_csv, structures_csv, '3JHN', n_atoms=12)
 
-# %%
 # add nans count as feature
-# full_df['nulls'] = full_df.isnull().sum(axis=1)
+full_df['nulls'] = full_df.isnull().sum(axis=1)
 
-
-# %%
 # sanity check
-# print(full_df.shape)
+# col = 'd_13_0'
+# print(full_df[[col]].info())
+# print(full_df[[col]].describe())
 # print(full_df.columns)
 
-
-# %%
 # fill nans
-# full_df = full_df.fillna(-999)
-
-# %%
+full_df = full_df.fillna(-999)
+# optional change in number of atoms
 # df = take_n_atoms(full_df, 7)
-# # LightGBM performs better with 0-s then with NaN-s
-# df = df.fillna(0)
-# df.columns
 
-# %%
 # create & train model
-# X_data = full_df.drop(['scalar_coupling_constant'],
-#                       axis=1).values.astype('float32')
-# y_data = full_df['scalar_coupling_constant'].values.astype('float32')
+X_data = full_df.drop(['scalar_coupling_constant'],
+                      axis=1).values.astype('float32')
+y_data = full_df['scalar_coupling_constant'].values.astype('float32')
 
-# X_train, X_val, y_train, y_val = train_test_split(
-#     X_data, y_data, test_size=0.2, random_state=128)
-# X_train.shape, X_val.shape, y_train.shape, y_val.shape
+X_train, X_val, y_train, y_val = train_test_split(
+    X_data, y_data, test_size=0.2, random_state=128)
+X_train.shape, X_val.shape, y_train.shape, y_val.shape
 
 # configuration params are copied from @artgor kernel:
 # https://www.kaggle.com/artgor/brute-force-feature-engineering
-# LGB_PARAMS = {
-#     'objective': 'regression',
-#     'metric': 'mae',
-#     'verbosity': -1,
-#     'boosting_type': 'gbdt',
-#     'learning_rate': 0.2,
-#     'num_leaves': 128,
-#     'min_child_samples': 79,
-#     'max_depth': 9,
-#     'subsample_freq': 1,
-#     'subsample': 0.9,
-#     'bagging_seed': 11,
-#     'reg_alpha': 0.1,
-#     'reg_lambda': 0.3,
-#     'colsample_bytree': 1.0
-# }
+LGB_PARAMS = {
+    'objective': 'regression',
+    'metric': 'mae',
+    'verbosity': -1,
+    'boosting_type': 'gbdt',
+    'learning_rate': 0.2,
+    'num_leaves': 128,
+    'min_child_samples': 79,
+    'max_depth': 9,
+    'subsample_freq': 1,
+    'subsample': 0.9,
+    'bagging_seed': 11,
+    'reg_alpha': 0.1,
+    'reg_lambda': 0.3,
+    'colsample_bytree': 1.0
+}
 
-# model = LGBMRegressor(**LGB_PARAMS, n_estimators=1500, n_jobs=hlp.CPU_COUNT-1)
-# model.fit(X_train, y_train,
-#           eval_set=[(X_train, y_train), (X_val, y_val)], eval_metric='mae',
-#           verbose=100, early_stopping_rounds=200)
+model = LGBMRegressor(**LGB_PARAMS, n_estimators=1500, n_jobs=hlp.CPU_COUNT-1)
+model.fit(X_train, y_train,
+          eval_set=[(X_train, y_train), (X_val, y_val)], eval_metric='mae',
+          verbose=100, early_stopping_rounds=200)
 
-# y_pred = model.predict(X_val)
-# print(np.log(mean_absolute_error(y_val, y_pred)))
-
-
-# # %%
-# full_test_df = build_couple_dataframe(test_csv, structures_csv, '1JHN', n_atoms=10)
-# full_test_df['nulls'] = full_test_df.isnull().sum(axis=1)
-# full_test_df = full_test_df.fillna(-999)
-# test_pred = model.predict(full_test_df)
-# submission_csv['scalar_coupling_constant'] = test_pred
-# submission_csv.to_csv(f'{hlp.DATASETS_PRED_PATH}submission.csv', index=False)
+y_pred = model.predict(X_val)
+print(np.log(mean_absolute_error(y_val, y_pred)))
 
 
-# #%%
-# print(full_test_df.shape)
-# print(test_pred.shape)
-# print(submission_csv.shape)
-
-# # %%
-# # plot FE
-# cols = list(full_df.columns)
-# cols.remove('scalar_coupling_constant')
-# cols
-# df_importance = pd.DataFrame({'feature': cols, 'importance': model.feature_importances_})
+# %%
+# plot FE
+cols = list(full_df.columns)
+cols.remove('scalar_coupling_constant')
+df_importance = pd.DataFrame({'feature': cols, 'importance': model.feature_importances_})
 # sns.barplot(x="importance", y="feature",
 #             data=df_importance.sort_values('importance', ascending=False));
 
-# # %%
-# display(df_importance.sort_values('importance', ascending=False))
+display(df_importance.sort_values('importance', ascending=False))
 # %%
 # # train pipeline
 LGB_PARAMS = {
@@ -320,14 +311,15 @@ LGB_PARAMS = {
     'reg_lambda': 0.3,
     'colsample_bytree': 1.0
 }
+ATOMS_N = 20
 
 MODEL_PARAMS = {
     '1JHN': 10,
-    '1JHC': 10,
-    '2JHH': 10,
-    '2JHN': 10,
-    '2JHC': 10,
-    '3JHH': 10,
+    '1JHC': 15,
+    '2JHH': 12,
+    '2JHN': 8,
+    '2JHC': 12,
+    '3JHH': 11,
     '3JHC': 10,
     '3JHN': 10
 }
@@ -418,12 +410,17 @@ for coupling_type_item in MODEL_PARAMS:
 scores_df = pd.DataFrame({'type': list(cv_scores.keys()),
                           'cv_score': list(cv_scores.values())})
 print(scores_df)
-print(np.mean(list(scores_df.values())))
+print(scores_df.mean())
 hlp.send_message_to_telegram(f'Model for {hlp.PROJECT_DIR} was trained!')
 hlp.send_message_to_telegram(str(scores_df))
+hlp.send_message_to_telegram(str(scores_df.mean()))
 
 # %%
 # save results
 print(submission_tmp.head())
 submission_tmp.to_csv(f'{hlp.DATASETS_PRED_PATH}submission.csv')
 
+
+
+
+#%%
