@@ -32,6 +32,7 @@ ATOMIC_NUMBERS = {
     'O': 8,
     'F': 9
 }
+
 TRAIN_DTYPES = {
     'molecule_name': 'category',
     'atom_index_0': 'int8',
@@ -48,6 +49,23 @@ STRUCTURES_DTYPES = {
     'z': 'float32'
 }
 
+DELETE_COLUMNS = [
+    'atom_2',
+    'atom_3',
+    'atom_4',
+    'atom_5',
+    'atom_6',
+    'atom_7',
+    'atom_8',
+    'atom_9',
+    'atom_10',
+    'atom_11',
+    'atom_12',
+    'atom_13',
+    'atom_14',
+    'atom_15',
+    'molecule_index',
+]
 
 train_csv = pd.read_csv(f'{hlp.DATASETS_ORIGINAL_PATH}train.csv',
                         index_col='id', dtype=TRAIN_DTYPES)
@@ -74,19 +92,6 @@ structures_csv['atom'] = structures_csv['atom'].replace(
 submission_csv = pd.read_csv(
     f'{hlp.DATASETS_PRED_PATH}/sample_submission.csv', index_col='id')
 
-# %%
-# Add number of atoms
-
-n_atoms_tr = pd.DataFrame(train_csv['molecule_index'].value_counts().sort_values())
-n_atoms_tst = pd.DataFrame(test_csv['molecule_index'].value_counts().sort_values())
-
-n_atoms_tr.columns = ['n_atoms']
-n_atoms_tr.index.names = ['molecule_index']
-n_atoms_tst.columns = ['n_atoms']
-n_atoms_tst.index.names = ['molecule_index']
-
-train_csv = train_csv.join(n_atoms_tr, on='molecule_index')
-test_csv = test_csv.join(n_atoms_tst, on='molecule_index')
 
 # %%
 # a lot of foreign functions
@@ -149,6 +154,30 @@ def add_distance_between(df, suffix1, suffix2):
         (df[f'z_{suffix1}'] - df[f'z_{suffix2}'])**np.float32(2)
     )**np.float32(0.5))
 
+    # df[f'dc_{suffix1}'] = ((
+    #     (df['xc'] - df[f'x_{suffix1}'])**np.float32(2) +
+    #     (df['yc'] - df[f'y_{suffix1}'])**np.float32(2) +
+    #     (df['zc'] - df[f'z_{suffix1}'])**np.float32(2)
+    # )**np.float32(0.5))
+
+    # cosinus calculus
+    # df[f'dxc_{suffix1}'] = df['xc']
+    # df[f'cos{suffix1}{suffix2}'] = (
+    #     (df[f'x_{suffix1}'] * df[f'x_{suffix2}']) +
+    #     (df[f'y_{suffix1}'] * df[f'y_{suffix2}']) +
+    #     (df[f'z_{suffix1}'] * df[f'z_{suffix2}'])
+    # )/(df[f'x_{suffix1}']**2 + df[f'y_{suffix1}']**2 + df[f'z_{suffix1}']**2)**(0.5)\
+    # /(df[f'x_{suffix2}']**2 + df[f'y_{suffix2}']**2 + df[f'z_{suffix2}']**2)**(0.5)
+
+    # df[f'cos{suffix1}{suffix2}'] = (
+    #     ((df[f'x_{suffix1}'] - df['xc']) * (df[f'x_{suffix2}']- df['xc'])) +
+    #     ((df[f'y_{suffix1}'] - df['yc']) * (df[f'y_{suffix2}']- df['yc'])) +
+    #     ((df[f'z_{suffix1}'] - df['zc']) * (df[f'z_{suffix2}']- df['zc']))
+    # )/((df[f'x_{suffix1}'] - df['xc'])**2 + (df[f'y_{suffix1}']
+    # - df['yc'])**2 + (df[f'z_{suffix1}'] - df['zc'])**2)**(0.5)\
+    # /((df[f'x_{suffix2}'] - df['xc'])**2 + (df[f'y_{suffix2}']
+    # - df['yc'])**2 + (df[f'z_{suffix2}'] - df['zc'])**2)**(0.5)
+
 
 def add_distances(df):
     n_atoms = 1 + max([int(c.split('_')[1])
@@ -177,6 +206,7 @@ def build_couple_dataframe(some_csv, structures_arg, coupling_type, n_atoms=10):
         atoms = atoms.drop(['scalar_coupling_constant'], axis=1)
 
     add_center(atoms)
+
     atoms = atoms.drop(['x_0', 'y_0', 'z_0', 'x_1', 'y_1', 'z_1'], axis=1)
 
     atoms = merge_all_atoms(atoms, structures)
@@ -189,12 +219,15 @@ def build_couple_dataframe(some_csv, structures_arg, coupling_type, n_atoms=10):
     atom_groups = atoms.groupby(
         ['molecule_index', 'atom_index_0', 'atom_index_1'])
     atoms['num'] = atom_groups.cumcount() + 2
-    atoms = atoms.drop(['d_c'], axis=1)
+    # atoms = atoms.drop(['d_c'], axis=1)
     atoms = atoms[atoms['num'] < n_atoms]
 
     atoms = atoms.set_index(
         ['molecule_index', 'atom_index_0', 'atom_index_1', 'num']).unstack()
+    # print('atoms columns')
+    # print(atoms.columns)
     atoms.columns = [f'{col[0]}_{col[1]}' for col in atoms.columns]
+    # print(atoms.columns)
     atoms = atoms.reset_index()
 
     # downcast back to int8
@@ -204,8 +237,33 @@ def build_couple_dataframe(some_csv, structures_arg, coupling_type, n_atoms=10):
 
     atoms['molecule_index'] = atoms['molecule_index'].astype('int32')
 
+    # print(atoms.columns)
+    # print(base.columns)
+    atoms['xc'] = structures_arg.groupby('molecule_index')[
+        'x'].transform('mean')
+    atoms['yc'] = structures_arg.groupby('molecule_index')[
+        'y'].transform('mean')
+    atoms['zc'] = structures_arg.groupby('molecule_index')[
+        'z'].transform('mean')
+    atoms['nmbatms'] = structures_arg.groupby(
+        'molecule_index')['z'].transform('count')
     full = add_atoms(base, atoms)
     add_distances(full)
+
+    if 'nmbatms_2' in full.columns:
+        full['molecule_n_atoms'] = full['nmbatms_2']
+        for col in full.columns:
+            if col.startswith('nmbatm'):
+                full.drop([col], axis=1, inplace=True)
+
+    for column in full.columns:
+        if column in DELETE_COLUMNS or\
+                column.startswith('x_') or\
+                column.startswith('y_') or\
+                column.startswith('z_'):
+            # or\
+            # column.startswith('d_c_'):
+            full.drop([column], axis=1, inplace=True)
 
     full.sort_values('id', inplace=True)
 
@@ -226,73 +284,76 @@ def take_n_atoms(df, n_atoms, four_start=4):
         labels.append('scalar_coupling_constant')
     return df[labels]
 
-
+# # %%
+# full_df = build_couple_dataframe(train_csv, structures_csv, '3JHN', n_atoms=12)
+# # %%
+# # print(full_df.column)
+# # print(full_df[['atom_2', 'atom_3', 'atom_4', 'atom_6']])
+# for colu in full_df.columns:
+#     print(colu)
 # %%
-# sandbox part
+# # sandbox part
 
-# create dataset for one type
-full_df = build_couple_dataframe(train_csv, structures_csv, '3JHN', n_atoms=12)
-
-# add nans count as feature
-full_df['nulls'] = full_df.isnull().sum(axis=1)
-
-# sanity check
-# col = 'd_13_0'
-# print(full_df[[col]].info())
-# print(full_df[[col]].describe())
-# print(full_df.columns)
-
-# fill nans
-full_df = full_df.fillna(-999)
-# optional change in number of atoms
-# df = take_n_atoms(full_df, 7)
-
-# create & train model
-X_data = full_df.drop(['scalar_coupling_constant'],
-                      axis=1).values.astype('float32')
-y_data = full_df['scalar_coupling_constant'].values.astype('float32')
-
-X_train, X_val, y_train, y_val = train_test_split(
-    X_data, y_data, test_size=0.2, random_state=128)
-X_train.shape, X_val.shape, y_train.shape, y_val.shape
-
-# configuration params are copied from @artgor kernel:
-# https://www.kaggle.com/artgor/brute-force-feature-engineering
-LGB_PARAMS = {
-    'objective': 'regression',
-    'metric': 'mae',
-    'verbosity': -1,
-    'boosting_type': 'gbdt',
-    'learning_rate': 0.2,
-    'num_leaves': 128,
-    'min_child_samples': 79,
-    'max_depth': 9,
-    'subsample_freq': 1,
-    'subsample': 0.9,
-    'bagging_seed': 11,
-    'reg_alpha': 0.1,
-    'reg_lambda': 0.3,
-    'colsample_bytree': 1.0
-}
-
-model = LGBMRegressor(**LGB_PARAMS, n_estimators=1500, n_jobs=hlp.CPU_COUNT-1)
-model.fit(X_train, y_train,
-          eval_set=[(X_train, y_train), (X_val, y_val)], eval_metric='mae',
-          verbose=100, early_stopping_rounds=200)
-
-y_pred = model.predict(X_val)
-print(np.log(mean_absolute_error(y_val, y_pred)))
+# # create dataset for one type
+# full_df = build_couple_dataframe(train_csv, structures_csv, '1JHN', n_atoms=10)
 
 
-# %%
-# plot FE
-cols = list(full_df.columns)
-cols.remove('scalar_coupling_constant')
-df_importance = pd.DataFrame({'feature': cols, 'importance': model.feature_importances_})
-# sns.barplot(x="importance", y="feature",
-#             data=df_importance.sort_values('importance', ascending=False));
+# # sanity check
+# # col = 'd_13_0'
+# # print(full_df[[col]].info())
+# # print(full_df[[col]].describe())
+# # print(full_df.columns)
 
-display(df_importance.sort_values('importance', ascending=False))
+# # fill nans
+# full_df = full_df.fillna(-999)
+# # optional change in number of atoms
+# # df = take_n_atoms(full_df, 7)
+
+# # create & train model
+# X_data = full_df.drop(['scalar_coupling_constant'],
+#                       axis=1).values.astype('float32')
+# y_data = full_df['scalar_coupling_constant'].values.astype('float32')
+
+# X_train, X_val, y_train, y_val = train_test_split(
+#     X_data, y_data, test_size=0.2, random_state=128)
+# X_train.shape, X_val.shape, y_train.shape, y_val.shape
+
+# # configuration params are copied from @artgor kernel:
+# # https://www.kaggle.com/artgor/brute-force-feature-engineering
+# LGB_PARAMS = {
+#     'objective': 'regression',
+#     'metric': 'mae',
+#     'verbosity': -1,
+#     'boosting_type': 'gbdt',
+#     'learning_rate': 0.1,
+#     'num_leaves': 128,
+#     'min_child_samples': 79,
+#     'max_depth': 13,
+#     'subsample_freq': 1,
+#     'subsample': 0.9,
+#     'bagging_seed': 11,
+#     'reg_alpha': 0.1,
+#     'reg_lambda': 0.3,
+#     'colsample_bytree': 1.0
+# }
+
+# model = LGBMRegressor(**LGB_PARAMS, n_estimators=1500, n_jobs=hlp.CPU_COUNT-1)
+# model.fit(X_train, y_train,
+#           eval_set=[(X_train, y_train), (X_val, y_val)], eval_metric='mae',
+#           verbose=100, early_stopping_rounds=200)
+
+# y_pred = model.predict(X_val)
+# print(np.log(mean_absolute_error(y_val, y_pred)))
+
+
+# # %%
+# # plot FE
+# cols = list(full_df.columns)
+# cols.remove('scalar_coupling_constant')
+# df_importance = pd.DataFrame({'feature': cols, 'importance': model.feature_importances_})
+# # sns.barplot(x="importance", y="feature",
+# #             data=df_importance.sort_values('importance', ascending=False));
+# display(df_importance.sort_values('importance', ascending=False))
 # %%
 # # train pipeline
 LGB_PARAMS = {
@@ -300,10 +361,10 @@ LGB_PARAMS = {
     'metric': 'mae',
     'verbosity': -1,
     'boosting_type': 'gbdt',
-    'learning_rate': 0.2,
+    'learning_rate': 0.1,
     'num_leaves': 128,
     'min_child_samples': 79,
-    'max_depth': 9,
+    'max_depth': 13,
     'subsample_freq': 1,
     'subsample': 0.9,
     'bagging_seed': 11,
@@ -311,7 +372,7 @@ LGB_PARAMS = {
     'reg_lambda': 0.3,
     'colsample_bytree': 1.0
 }
-ATOMS_N = 20
+
 
 MODEL_PARAMS = {
     '1JHN': 10,
@@ -327,7 +388,7 @@ MODEL_PARAMS = {
 N_FOLDS = 5
 
 
-def build_x_y_data(some_csv, coupling_type, n_atoms, fill_value=-999, count_nans=True):
+def build_x_y_data(some_csv, coupling_type, n_atoms, fill_value=-999, count_nans=False):
     full = build_couple_dataframe(
         some_csv, structures_csv, coupling_type, n_atoms=n_atoms)
 
@@ -421,6 +482,4 @@ print(submission_tmp.head())
 submission_tmp.to_csv(f'{hlp.DATASETS_PRED_PATH}submission.csv')
 
 
-
-
-#%%
+# %%
