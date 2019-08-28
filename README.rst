@@ -30,7 +30,7 @@ A lot was taken from public kernels:
 
     * `molecular-properties-eda-and-models <https://www.kaggle.com/artgor/molecular-properties-eda-and-models>`_.
     * `distance-is-all-you-need-lb-1-481 <https://www.kaggle.com/criskiev/distance-is-all-you-need-lb-1-481>`_.
-    * `predicting-molecular-properties-bonds <https://www.kaggle.com/asauve/predicting-molecular-properties-bonds>`_.
+
 
 
 Releases
